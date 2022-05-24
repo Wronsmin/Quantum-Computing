@@ -1,7 +1,18 @@
 import networkx as nx
 import dimod
 
-def bqm_frustration(L, const):
+def bqm_frustration(L: int, const:  float) -> dimod.BinaryQuadraticModel:
+    """Function used to build the model described in Park and Lee's article[1]
+
+    Args:
+        L (int): Lattice size
+        const (float): constant which represents the ratio J_2/J_1
+
+    Returns:
+        dimod.BinaryQuadraticModel: model's representation on the D-Wave system
+    """
+    
+    
     Lattice_Size = (L, L)
     C_G = nx.grid_graph(dim=Lattice_Size, periodic=False)
     
