@@ -3,6 +3,10 @@ import dimod
 
 def bqm_frustration(L: int, const:  float) -> dimod.BinaryQuadraticModel:
     """Function used to build the model described in Park and Lee's article[1]
+    
+    [1] Park, Hayun and Lee, Hunpyo. "Phase transition of Frustrated Ising model 
+        via D-wave Quantum Annealing Machine". Quantum Physics. 
+        :DOI: '10.48550/ARXIV.2110.05124'
 
     Args:
         L (int): Lattice size
