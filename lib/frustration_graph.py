@@ -1,5 +1,8 @@
 import networkx as nx
+import numpy as np
 import dimod
+import time
+
 
 def bqm_frustration(L: int, const:  float) -> dimod.BinaryQuadraticModel:
     """Function used to build the model described in Park and Lee's article[1]
@@ -59,3 +62,32 @@ def bqm_frustration(L: int, const:  float) -> dimod.BinaryQuadraticModel:
         bqm.add_interaction(node1, node2, J1)
     
     return bqm
+
+
+def phase_transition(L, ratios, sampler, num_reads=100):
+    results = []
+
+    for const in ratios:
+        bqm = bqm_frustration(L, const)
+        sampleset = sampler.sample(bqm, num_reads=num_reads, 
+                                   label=f'Ising Frustrated {ratios.size} points') #chain_strenght=5
+        results.append(sampleset)
+        time.sleep(10)
+        
+    
+    Magnetizations = []
+    Frequencies = []
+    Energies = []
+
+    for result in results: 
+        M, f, E = [], [], []
+        for record in result.record:
+            M_mean = np.abs(record[0].mean())
+            M.append(M_mean)
+            f.append(record[2])
+            E.append(record[1])
+        Magnetizations.append(M)
+        Frequencies.append(f)
+        Energies.append(E)
+    
+    return np.array(Magnetizations), np.array(Frequencies), np.array(Energies)
