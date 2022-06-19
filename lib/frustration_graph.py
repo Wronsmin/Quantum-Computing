@@ -66,13 +66,14 @@ def bqm_frustration(L: int, const:  float) -> dimod.BinaryQuadraticModel:
 
 def phase_transition(L, ratios, sampler, num_reads=100):
     results = []
-
+    i = 1
     for const in ratios:
         bqm = bqm_frustration(L, const)
         sampleset = sampler.sample(bqm, num_reads=num_reads, 
-                                   label=f'Ising Frustrated {ratios.size} points') #chain_strenght=5
+                                   label=f'Ising Frustrated {i}/{ratios.size}') #chain_strenght=5
+        i += 1
         results.append(sampleset)
-        time.sleep(10)
+        time.sleep(2)
         
     
     Magnetizations = []
