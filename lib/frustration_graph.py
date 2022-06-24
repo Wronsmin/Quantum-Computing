@@ -1,5 +1,6 @@
 import networkx as nx
 import numpy as np
+from tqdm import tqdm
 import dimod
 import time
 
@@ -24,8 +25,8 @@ def bqm_frustration(L: int, const:  float) -> dimod.BinaryQuadraticModel:
     C_G = nx.grid_graph(dim=Lattice_Size, periodic=False)
     
     h = 0.0
-    J1 = -2
-    J2 = const * J1
+    J1 = -1
+    J2 = const * np.abs(J1)
 
     bqm = dimod.BinaryQuadraticModel.empty(dimod.SPIN)
 
@@ -67,7 +68,7 @@ def bqm_frustration(L: int, const:  float) -> dimod.BinaryQuadraticModel:
 def phase_transition(L, ratios, sampler, num_reads=100):
     results = []
     i = 1
-    for const in ratios:
+    for const in tqdm(ratios):
         bqm = bqm_frustration(L, const)
         sampleset = sampler.sample(bqm, num_reads=num_reads, 
                                    label=f'Ising Frustrated {i}/{ratios.size}') #chain_strenght=5
@@ -91,4 +92,4 @@ def phase_transition(L, ratios, sampler, num_reads=100):
         Frequencies.append(f)
         Energies.append(E)
     
-    return np.array(Magnetizations), np.array(Frequencies), np.array(Energies)
+    return Magnetizations, Frequencies, Energies
