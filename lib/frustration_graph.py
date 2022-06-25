@@ -74,7 +74,7 @@ def phase_transition(L, ratios, sampler, num_reads=100):
                                    label=f'Ising Frustrated {i}/{ratios.size}') #chain_strenght=5
         i += 1
         results.append(sampleset)
-        time.sleep(2)
+        time.sleep(5)
         
     
     Magnetizations = []
