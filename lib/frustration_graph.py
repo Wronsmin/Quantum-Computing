@@ -97,7 +97,7 @@ def phase_transition(L: int, ratios: np.ndarray, sampler, num_reads: int =100, h
 def results_analysis(M: list, F: list, E: list):
     n = len(M)
 
-    Mag, Chi, En = [], [], []
+    Mag, Chi, Ens = [], [], []
 
     for i in range(n):
         Magn = np.array(M[i])
@@ -109,9 +109,9 @@ def results_analysis(M: list, F: list, E: list):
         C = ((Magn - M_mean)**2 * Freq).sum() / Freq.sum()
         Mag.append(M_mean)
         Chi.append(C)
-        En.append(En_mean)
+        Ens.append(En_mean)
     
-    return Mag, Chi, En
+    return Mag, Chi, Ens
 
 
 def h_transition(L: int, ratios: np.ndarray, H: np.ndarray, sampler, num_reads=100):
