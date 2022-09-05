@@ -45,13 +45,16 @@ def bqm_frustration(L: int, const:  float, h: float =0.0) -> dimod.BinaryQuadrat
 
     for edge in C_G.edges:
         node1, node2 = edge
+
         i, j = node1
         node1 = f"{i}-{j}"
         
         i, j = node2
         node2 = f"{i}-{j}"
+        
         bqm.add_interaction(node1, node2, J1)
-    
+
+
     return bqm
 
 
