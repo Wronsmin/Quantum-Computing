@@ -35,21 +35,12 @@ def bqm_frustration(L: int, const:  float, h: float =0.0) -> dimod.BinaryQuadrat
         bqm.add_variable(v=node_name, bias=h)
         
 
-    for x in range(1, L-1):
-        for y in range(1, L-1):
+    for x in range(L-1):
+        for y in range(L-1):
             # diagonals on right
-            x1, y1 = x+1, y+1
-            bqm.add_interaction(f"{x}-{y}", f"{x1}-{y1}", J2)
+            bqm.add_interaction(f"{x}-{y}", f"{x+1}-{y+1}", J2)
             
-            x1, y1 = x-1, y+1
-            bqm.add_interaction(f"{x}-{y}", f"{x1}-{y1}", J2)
-            
-            # diagonals on left
-            x1, y1 = x+1, y-1
-            bqm.add_interaction(f"{x}-{y}", f"{x1}-{y1}", J2)
-            
-            x1, y1 = x-1, y-1
-            bqm.add_interaction(f"{x}-{y}", f"{x1}-{y1}", J2)
+            bqm.add_interaction(f"{x + 1}-{y}", f"{x}-{y + 1}", J2)
 
 
     for edge in C_G.edges:
