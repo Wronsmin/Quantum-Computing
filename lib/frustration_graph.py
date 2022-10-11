@@ -3,6 +3,7 @@ import numpy as np
 from tqdm import tqdm
 import dimod
 import time
+import graphtool as gt 
 
 
 def bqm_frustration(L: int, const:  float, h: float =0.0) -> dimod.BinaryQuadraticModel:
@@ -118,3 +119,11 @@ def h_transition(L: int, ratios: np.ndarray, H: np.ndarray, sampler, num_reads=1
         Ms.append(M), Cs.append(C), Es.append(E)
     
     return Ms, Cs, Es
+
+
+def cpu_sim(L: int, T: np.ndarray, ratios: np.ndarray, H: np.ndarray, periodic: bool=False, num_sim=100):
+    lattice = gt.generation.lattice(shape=[L, L], periodic=periodic)
+    
+    
+    
+    
