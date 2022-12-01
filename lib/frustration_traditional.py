@@ -8,23 +8,23 @@ import pandas as pd
 from tqdm import tqdm
 
 @dataclass
-def Ising():
+class Ising():
     L: int
     
     def hot_config(self):
         return np.tile([[-1, 1], [1, -1]], 
-                       (self.N // 2, self.N // 2))
+                       (self.L, self.L))[:self.L, :self.L]
 
     
-    @jit
     def MC_step(self, config, beta, J, H):
         '''
         Monte Carlo move using Metropolis algorithm
         '''
-        rng = np.random.rand(self.L, self.L)
+        L = config.shape[0]
+        rng = np.random.rand(L, L)
         J1, J2 = J
-        for i in range(self.L):
-            for j in range(self.L):
+        for i in range(L):
+            for j in range(L):
                 s = config[i, j]
                 
                 # considering nearest neighbors
@@ -44,12 +44,13 @@ def Ising():
                 if (del_E < 0) or (rng[i, j] < np.exp(-del_E * beta)):
                     config[i, j] = -s
                     
-    @jit
-    def E_dimensionless(self, config, L, J, H):
+    
+    def E_dimensionless(self, config, J, H):
         total_energy = 0
+        L = config.shape[0]
         J1, J2 = J
-        for i in range(self.L):
-            for j in range(self.L):
+        for i in range(L):
+            for j in range(L):
                 S = config[i, j]
                 n_nb = config[(i + 1) % L, j] + \
                      config[i, (j + 1) % L] + \
@@ -62,12 +63,11 @@ def Ising():
                         config[(i + 1) % L,  (j - 1) % L] + \
                         config[(i - 1) % L,  (j - 1) % L]
 
-                
                 total_energy += - S * (J1 * n_nb - J2 * nn_nb +  H)
         return total_energy / 2.
                     
     
-    def phase_transition(self, T, J, H, err_runs=1):
+    def phase_transition(self, T, J, H=0, err_runs=1):
         # L is the length of the lattice
 
         # number of temperature points
@@ -84,13 +84,13 @@ def Ising():
         C, C_std, C_th = 0, 0, 0
         X, X_std = 0, 0
         
-        config = hot_config(self.L)
+        config = self.hot_config()
 
         # initialize total energy and mag
         beta = 1. / T
         # evolve the system to equilibrium
         for i in range(eqSteps):
-            MC_step(config, beta)
+            self.MC_step(config, beta, J, H)
         # list of ten macroscopic properties
         Ez = []
         Cz = []
@@ -101,16 +101,16 @@ def Ising():
             E = np.zeros(mcSteps)
             M = np.zeros(mcSteps)
             for i in range(mcSteps):
-                MC_step(config, beta, J, H)
-                E[i] = E_dimensionless(config, beta, J, H)  # calculate the energy at time stamp
+                self.MC_step(config, beta, J, H)
+                E[i] = self.E_dimensionless(config, J, H)  # calculate the energy at time stamp
                 M[i] = abs(np.mean(config))  # calculate the abs total mag. at time stamp
 
 
             # calculate macroscopic properties (divide by # sites) and append
-            Energy = E.mean() / L ** 2
-            SpecificHeat = beta ** 2 * E.var() / L**2
+            Energy = E.mean() / self.L ** 2
+            SpecificHeat = beta ** 2 * E.var() / self.L**2
             Magnetization = M.mean()
-            Susceptibility = beta * M.var() * (L ** 2)
+            Susceptibility = beta * M.var() * (self.L ** 2)
 
             Ez.append(Energy)
             Cz.append(SpecificHeat)
