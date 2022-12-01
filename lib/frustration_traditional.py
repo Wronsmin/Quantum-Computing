@@ -14,6 +14,7 @@ def Ising():
     def hot_config(self):
         return np.tile([[-1, 1], [1, -1]], 
                        (self.N // 2, self.N // 2))
+
     
     @jit
     def MC_step(self, config, beta, J, H):
@@ -21,13 +22,120 @@ def Ising():
         Monte Carlo move using Metropolis algorithm
         '''
         rng = np.random.rand(self.L, self.L)
+        J1, J2 = J
         for i in range(self.L):
             for j in range(self.L):
                 s = config[i, j]
-                neighbors = config[(i + 1) % L, j] + config[i, (j + 1) % L] + config[(i - 1) % L, j] + config[
-                    i, (j - 1) % L]
-                del_E = 2 * J * s * neighbors + 2 * H * s
+                
+                # considering nearest neighbors
+                n_nb = config[(i + 1) % L,   j] + \
+                       config[          i,  (j + 1) % L] + \
+                       config[(i - 1) % L,  j] + \
+                       config[          i,  (j - 1) % L]
+                
+                # considering next nearest neighbors  
+                nn_nb = config[(i + 1) % L, (j + 1) % L] + \
+                        config[(i - 1) % L,  (j + 1) % L] + \
+                        config[(i + 1) % L,  (j - 1) % L] + \
+                        config[(i - 1) % L,  (j - 1) % L]
+                        
+                del_E = 2 * s * (J1 * n_nb - J2 * nn_nb +  H)
                 
                 if (del_E < 0) or (rng[i, j] < np.exp(-del_E * beta)):
                     config[i, j] = -s
+                    
+    @jit
+    def E_dimensionless(self, config, L, J, H):
+        total_energy = 0
+        J1, J2 = J
+        for i in range(self.L):
+            for j in range(self.L):
+                S = config[i, j]
+                n_nb = config[(i + 1) % L, j] + \
+                     config[i, (j + 1) % L] + \
+                     config[(i - 1) % L, j] + \
+                     config[i, (j - 1) % L]
+                     
+                # considering next nearest neighbors  
+                nn_nb = config[(i + 1) % L, (j + 1) % L] + \
+                        config[(i - 1) % L,  (j + 1) % L] + \
+                        config[(i + 1) % L,  (j - 1) % L] + \
+                        config[(i - 1) % L,  (j - 1) % L]
+
+                
+                total_energy += - S * (J1 * n_nb - J2 * nn_nb +  H)
+        return total_energy / 2.
+                    
+    
+    def phase_transition(self, T, J, H, err_runs=1):
+        # L is the length of the lattice
+
+        # number of temperature points
+        eqSteps = 100
+        mcSteps = 1000
+        coeff = np.log(1 + np.sqrt(2))
+
+        T_c = 2 / np.log(1 + np.sqrt(2))
+
+        # initialization of all variables
+    
+        E, E_std = 0, 0
+        M, M_std, M_th = 0, 0, 0
+        C, C_std, C_th = 0, 0, 0
+        X, X_std = 0, 0
+        
+        config = hot_config(self.L)
+
+        # initialize total energy and mag
+        beta = 1. / T
+        # evolve the system to equilibrium
+        for i in range(eqSteps):
+            MC_step(config, beta)
+        # list of ten macroscopic properties
+        Ez = []
+        Cz = []
+        Mz = []
+        Xz = []
+
+        for j in range(err_runs):
+            E = np.zeros(mcSteps)
+            M = np.zeros(mcSteps)
+            for i in range(mcSteps):
+                MC_step(config, beta, J, H)
+                E[i] = E_dimensionless(config, beta, J, H)  # calculate the energy at time stamp
+                M[i] = abs(np.mean(config))  # calculate the abs total mag. at time stamp
+
+
+            # calculate macroscopic properties (divide by # sites) and append
+            Energy = E.mean() / L ** 2
+            SpecificHeat = beta ** 2 * E.var() / L**2
+            Magnetization = M.mean()
+            Susceptibility = beta * M.var() * (L ** 2)
+
+            Ez.append(Energy)
+            Cz.append(SpecificHeat)
+            Mz.append(Magnetization)
+            Xz.append(Susceptibility)
+
+        E = np.mean(np.array(Ez))
+        E_std = np.std(np.array(Ez))
+
+        M = np.mean(np.array(Mz))
+        M_std = np.std(np.array(Mz))
+
+        C = np.mean(np.array(Cz))
+        C_std = np.std(np.array(Cz))
+
+        X = np.mean(np.array(Xz))
+        X_std = np.std(np.array(Xz))
+        
+        if T - T_c >= 0:
+            C_th = 0
+            M_th = 0
+        else:
+            M_th = np.power(1 - np.power(np.sinh(2 * beta), -4), 1 / 8)
+            C_th = (2.0 / np.pi) * (coeff ** 2) * (
+                    -np.log(1 - T / T_c) + np.log(1.0 / coeff) - (1 + np.pi / 4))
+        
+        return np.array([T, E, E_std, M, M_std, M_th, C, C_std, C_th, X, X_std]), config
 
