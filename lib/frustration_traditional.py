@@ -1,11 +1,13 @@
 import numpy as np
-from dataclasses import dataclass
-from numpy.random import rand
-import time
-from numba import jit
-from multiprocessing import Pool, cpu_count
 import pandas as pd 
+from numba import jit
 from tqdm import tqdm
+from dataclasses import dataclass
+from multiprocessing import Pool, cpu_count
+
+
+def dstack_product(x, y):
+    return np.dstack(np.meshgrid(x, y)).reshape(-1, 2)
 
 @jit
 def MC_step(config, beta, J, H):
@@ -70,7 +72,7 @@ class Ising():
                        (self.L, self.L))[:self.L, :self.L]
                     
     
-    def phase_transition(self, T, J, H=0, err_runs=1):
+    def thermalization(self, T, J, H=0, err_runs=1):
         # L is the length of the lattice
 
         # number of temperature points
@@ -132,12 +134,27 @@ class Ising():
         X = np.mean(np.array(Xz))
         X_std = np.std(np.array(Xz))
         
-        if T - T_c >= 0:
-            C_th = 0
-            M_th = 0
-        else:
-            M_th = np.power(1 - np.power(np.sinh(2 * beta), -4), 1 / 8)
-            C_th = (2.0 / np.pi) * (coeff ** 2) * (
-                    -np.log(1 - T / T_c) + np.log(1.0 / coeff) - (1 + np.pi / 4))
+        return np.array([T, np.divide(*J[::-1]), 
+                         E, E_std, 
+                         M, M_std, 
+                         C, C_std, 
+                         X, X_std]), config
+    
+    def transition(self, Ts, ratios, H=0, err_runs=1):
+        params = dstack_product(Ts, ratios)
         
-        return np.array([T, E, E_std, M, M_std, M_th, C, C_std, C_th, X, X_std]), config
+        columns = ['T', 'ratio', 'E', 'E_std', 'M', 'M_std', 'C', 'C_std', 'X', 'X_std']
+        res = []
+        
+        for param in tqdm(params):
+            T, ratio = param
+            J = np.array([1, ratio])
+            
+            res.append(self.thermalization(T, J, H, err_runs)[0])
+        
+        return pd.DataFrame(res, columns=columns)
+            
+        
+        
+        
+        
