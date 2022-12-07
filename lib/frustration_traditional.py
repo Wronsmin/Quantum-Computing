@@ -61,92 +61,94 @@ def E_dimensionless(config, J, H):
             total_energy += - S * (J1 * n_nb - J2 * nn_nb +  H)
     return total_energy / 2.
 
+@jit
+def hot_config(L):
+    config = np.ones(shape=(L, L))
+    config[1::2, ::2] = -1
+    config[::2, 1::2] = -1
+    return config
+                
 
+@jit
+def thermalization(L, T, J, H=0, err_runs=1):
+    # L is the length of the lattice
 
-@dataclass
-class Ising():
-    L: int
+    # number of temperature points
+    eqSteps = 100
+    mcSteps = 1000
+
+    # initialization of all variables
+
+    E, E_std = 0, 0
+    M, M_std = 0, 0
+    C, C_std = 0, 0
+    X, X_std = 0, 0
     
-    def hot_config(self):
-        return np.tile([[-1, 1], [1, -1]], 
-                       (self.L, self.L))[:self.L, :self.L]
-                    
-    
-    def thermalization(self, T, J, H=0, err_runs=1):
-        # L is the length of the lattice
+    config = hot_config(L)
 
-        # number of temperature points
-        eqSteps = 100
-        mcSteps = 1000
+    # initialize total energy and mag
+    beta = 1. / T
+    # evolve the system to equilibrium
+    for i in range(eqSteps):
+        MC_step(config, beta, J, H)
+    # list of ten macroscopic properties
+    Ez = np.zeros(err_runs)
+    Cz = np.zeros(err_runs)
+    Mz = np.zeros(err_runs)
+    Xz = np.zeros(err_runs)
 
-        # initialization of all variables
-    
-        E, E_std = 0, 0
-        M, M_std = 0, 0
-        C, C_std = 0, 0
-        X, X_std = 0, 0
-        
-        config = self.hot_config()
-
-        # initialize total energy and mag
-        beta = 1. / T
-        # evolve the system to equilibrium
-        for i in range(eqSteps):
+    for j in range(err_runs):
+        E = np.zeros(mcSteps)
+        M = np.zeros(mcSteps)
+        for i in range(mcSteps):
             MC_step(config, beta, J, H)
-        # list of ten macroscopic properties
-        Ez = []
-        Cz = []
-        Mz = []
-        Xz = []
-
-        for j in range(err_runs):
-            E = np.zeros(mcSteps)
-            M = np.zeros(mcSteps)
-            for i in range(mcSteps):
-                MC_step(config, beta, J, H)
-                E[i] = E_dimensionless(config, J, H)  # calculate the energy at time stamp
-                M[i] = abs(np.mean(config))  # calculate the abs total mag. at time stamp
+            E[i] = E_dimensionless(config, J, H)  # calculate the energy at time stamp
+            M[i] = abs(np.mean(config))  # calculate the abs total mag. at time stamp
 
 
-            # calculate macroscopic properties (divide by # sites) and append
-            Energy = E.mean() / self.L ** 2
-            SpecificHeat = beta ** 2 * E.var() / self.L**2
-            Magnetization = M.mean()
-            Susceptibility = beta * M.var() * (self.L ** 2)
+        # calculate macroscopic properties (divide by # sites) and append
+        Energy = E.mean() / L ** 2
+        SpecificHeat = beta ** 2 * E.var() / L**2
+        Magnetization = M.mean()
+        Susceptibility = beta * M.var() * (L ** 2)
 
-            Ez.append(Energy)
-            Cz.append(SpecificHeat)
-            Mz.append(Magnetization)
-            Xz.append(Susceptibility)
+        Ez[j] = Energy
+        Cz[j] = SpecificHeat
+        Mz[j] = Magnetization
+        Xz[j] = Susceptibility
 
-        E = np.mean(np.array(Ez))
-        E_std = np.std(np.array(Ez))
+    E = Ez.mean()
+    E_std = Ez.std()
 
-        M = np.mean(np.array(Mz))
-        M_std = np.std(np.array(Mz))
+    M = Mz.mean()
+    M_std = Mz.std()
 
-        C = np.mean(np.array(Cz))
-        C_std = np.std(np.array(Cz))
+    C = Cz.mean()
+    C_std = Cz.std()
 
-        X = np.mean(np.array(Xz))
-        X_std = np.std(np.array(Xz))
-        
-        return np.array([T, np.divide(*J[::-1]), 
-                         E, E_std, 
-                         M, M_std, 
-                         C, C_std, 
-                         X, X_std]), config
+    X = Xz.mean()
+    X_std = Xz.std()
     
-    def transition(self, Ts, ratios, H=0, err_runs=1):
-        params = dstack_product(Ts, ratios)
+    res = np.zeros(10)
+    res[:] = T, J[1]/J[0], \
+             E, E_std, \
+             M, M_std, \
+             C, C_std, \
+             X, X_std
+    
+    return res, config
+
+
+def transition(Ts, ratios, H=0, err_runs=1):
+    params = dstack_product(Ts, ratios)
+    
+    columns = ['T', 'ratio', 'E', 'E_std', 'M', 'M_std', 'C', 'C_std', 'X', 'X_std']
+    res = []
+    
+    for param in tqdm(params):
+        T, ratio = param
+        J = np.array([1, ratio])
         
-        columns = ['T', 'ratio', 'E', 'E_std', 'M', 'M_std', 'C', 'C_std', 'X', 'X_std']
-        res = []
-        
-        for param in tqdm(params):
-            T, ratio = param
-            J = np.array([1, ratio])
-            
-            res.append(self.thermalization(T, J, H, err_runs)[0])
-        
-        return pd.DataFrame(res, columns=columns)
+        res.append(thermalization(T, J, H, err_runs)[0])
+    
+    return pd.DataFrame(res, columns=columns)
