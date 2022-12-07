@@ -37,7 +37,7 @@ def MC_step(config, beta, J, H):
             
             if (del_E < 0) or (rng[i, j] < np.exp(-del_E * beta)):
                 config[i, j] = -s
-                
+
 
 @jit   
 def E_dimensionless(config, J, H):
@@ -78,15 +78,12 @@ class Ising():
         # number of temperature points
         eqSteps = 100
         mcSteps = 1000
-        coeff = np.log(1 + np.sqrt(2))
-
-        T_c = 2 / np.log(1 + np.sqrt(2))
 
         # initialization of all variables
     
         E, E_std = 0, 0
-        M, M_std, M_th = 0, 0, 0
-        C, C_std, C_th = 0, 0, 0
+        M, M_std = 0, 0
+        C, C_std = 0, 0
         X, X_std = 0, 0
         
         config = self.hot_config()
@@ -153,8 +150,3 @@ class Ising():
             res.append(self.thermalization(T, J, H, err_runs)[0])
         
         return pd.DataFrame(res, columns=columns)
-            
-        
-        
-        
-        
