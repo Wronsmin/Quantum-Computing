@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd 
-from numba import jit
+from numba import jit, njit, prange
 from tqdm import tqdm
 from dataclasses import dataclass
 from multiprocessing import Pool, cpu_count
@@ -139,16 +139,25 @@ def thermalization(L, T, J, H=0, err_runs=1):
     return res, config
 
 
-def transition(Ts, ratios, H=0, err_runs=1):
+@njit(parallel=True, nogil=True)
+def transition(L, params, H=0, err_runs=1):
+    
+    res = np.zeros((len(params), 10))
+    
+    for i in prange(len(params)):
+        T, ratio = params[i]
+        J = np.array([1, ratio])
+        
+        res[i, :] = thermalization(L, T, J, H, err_runs)[0]
+    
+    return res
+
+
+def Ising(L, Ts, ratios, H=0, err_runs=1):
     params = dstack_product(Ts, ratios)
     
     columns = ['T', 'ratio', 'E', 'E_std', 'M', 'M_std', 'C', 'C_std', 'X', 'X_std']
-    res = []
     
-    for param in tqdm(params):
-        T, ratio = param
-        J = np.array([1, ratio])
-        
-        res.append(thermalization(T, J, H, err_runs)[0])
+    res = transition(L, params, H, err_runs)
     
     return pd.DataFrame(res, columns=columns)
