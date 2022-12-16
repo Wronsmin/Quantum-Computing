@@ -6,8 +6,10 @@ from dataclasses import dataclass
 from multiprocessing import Pool, cpu_count
 
 
-def dstack_product(x, y):
-    return np.dstack(np.meshgrid(x, y)).reshape(-1, 2)
+def cartesian_product(*arrays):
+    ndim = len(arrays)
+    return (np.stack(np.meshgrid(*arrays), 
+                     axis=-1).reshape(-1, ndim))
 
 @jit
 def MC_step(config, beta, J, H):
@@ -144,7 +146,7 @@ def transition(L, params, H=0, err_runs=1):
     
     res = np.zeros((len(params), 10))
     
-    for i in prange(len(params)):
+    for i in range(len(params)):
         T, ratio = params[i]
         J = np.array([1, ratio])
         
@@ -154,7 +156,7 @@ def transition(L, params, H=0, err_runs=1):
 
 
 def Ising(L, Ts, ratios, H=0, err_runs=1):
-    params = dstack_product(Ts, ratios)
+    params = cartesian_product(Ts, ratios)
     
     columns = ['T', 'ratio', 'E', 'E_std', 'M', 'M_std', 'C', 'C_std', 'X', 'X_std']
     
