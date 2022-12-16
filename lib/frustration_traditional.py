@@ -71,9 +71,11 @@ def hot_config(L):
     return config
                 
 
-@jit
-def thermalization(L, T, J, H=0, err_runs=1):
+def thermalization(*param): #L, T, J, H=0, err_runs=1
     # L is the length of the lattice
+    L, T, ratio, H, err_runs = param
+    L, err_runs = int(L), int(err_runs)
+    J = np.array([1, ratio])
 
     # number of temperature points
     eqSteps = 100
@@ -138,28 +140,18 @@ def thermalization(L, T, J, H=0, err_runs=1):
              C, C_std, \
              X, X_std
     
-    return res, config
+    return res#, config
 
 
-@njit(parallel=True, nogil=True)
-def transition(L, params, H=0, err_runs=1):
+def transition(L, Ts, ratios, err_runs=1, workers=1, H=0):
+    
+    params = cartesian_product([L], Ts, ratios, [H], [err_runs])
+    columns = ['T', 'ratio', 'E', 'E_std', 'M', 'M_std', 'C', 'C_std', 'X', 'X_std']
     
     res = np.zeros((len(params), 10))
     
-    for i in range(len(params)):
-        T, ratio = params[i]
-        J = np.array([1, ratio])
-        
-        res[i, :] = thermalization(L, T, J, H, err_runs)[0]
+    pool = Pool(processes=workers)
+    res = pool.starmap(thermalization, params)
+    pool.close()
     
-    return res
-
-
-def Ising(L, Ts, ratios, H=0, err_runs=1):
-    params = cartesian_product(Ts, ratios)
-    
-    columns = ['T', 'ratio', 'E', 'E_std', 'M', 'M_std', 'C', 'C_std', 'X', 'X_std']
-    
-    res = transition(L, params, H, err_runs)
-    
-    return pd.DataFrame(res, columns=columns)
+    return res #pd.DataFrame(res, columns=columns)
