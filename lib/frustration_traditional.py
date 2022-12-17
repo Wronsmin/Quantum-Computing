@@ -4,6 +4,7 @@ from numba import jit, njit, prange
 from tqdm import tqdm
 from dataclasses import dataclass
 from multiprocessing import Pool, cpu_count
+from scipy.stats import moment
 
 
 def cartesian_product(*arrays):
@@ -80,13 +81,6 @@ def thermalization(*param): #L, T, J, H=0, err_runs=1
     # number of temperature points
     eqSteps = 100
     mcSteps = 1000
-
-    # initialization of all variables
-
-    E, E_std = 0, 0
-    M, M_std = 0, 0
-    C, C_std = 0, 0
-    X, X_std = 0, 0
     
     config = hot_config(L)
 
@@ -100,6 +94,7 @@ def thermalization(*param): #L, T, J, H=0, err_runs=1
     Cz = np.zeros(err_runs)
     Mz = np.zeros(err_runs)
     Xz = np.zeros(err_runs)
+    Uz = np.zeros(err_runs)
 
     for j in range(err_runs):
         E = np.zeros(mcSteps)
@@ -114,12 +109,14 @@ def thermalization(*param): #L, T, J, H=0, err_runs=1
         Energy = E.mean() / L ** 2
         SpecificHeat = beta ** 2 * E.var() / L**2
         Magnetization = M.mean()
-        Susceptibility = beta * M.var() * (L ** 2)
+        M_var = M.var()
+        Susceptibility = beta * M_var * (L ** 2)
 
         Ez[j] = Energy
         Cz[j] = SpecificHeat
         Mz[j] = Magnetization
         Xz[j] = Susceptibility
+        Uz[j] = 1 - moment(M, 4) / (3 * (moment(M, 2) ** 2))
 
     E = Ez.mean()
     E_std = Ez.std()
@@ -133,12 +130,13 @@ def thermalization(*param): #L, T, J, H=0, err_runs=1
     X = Xz.mean()
     X_std = Xz.std()
     
-    res = np.zeros(10)
+    res = np.zeros(11)
     res[:] = T, J[1]/J[0], \
              E, E_std, \
              M, M_std, \
              C, C_std, \
-             X, X_std
+             X, X_std, \
+                 Uz.mean()
     
     return res#, config
 
@@ -146,12 +144,12 @@ def thermalization(*param): #L, T, J, H=0, err_runs=1
 def transition(L, Ts, ratios, err_runs=1, workers=1, H=0):
     
     params = cartesian_product([L], Ts, ratios, [H], [err_runs])
-    columns = ['T', 'ratio', 'E', 'E_std', 'M', 'M_std', 'C', 'C_std', 'X', 'X_std']
-    
-    res = np.zeros((len(params), 10))
+    columns = ['T', 'ratio', 'E', 'E_std', 'M', 'M_std', 'C', 'C_std', 'X', 'X_std', 'U']
     
     pool = Pool(processes=workers)
     res = pool.starmap(thermalization, params)
     pool.close()
     
-    return res #pd.DataFrame(res, columns=columns)
+    res = np.array(res)
+    
+    return pd.DataFrame(res, columns=columns)
