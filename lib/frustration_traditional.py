@@ -1,16 +1,13 @@
 import numpy as np
 import pandas as pd 
-from numba import jit, njit, prange
-from tqdm import tqdm
-from dataclasses import dataclass
+from numba import jit
+from itertools import product
 from multiprocessing import Pool, cpu_count
-from scipy.stats import moment
+from scipy.stats import kurtosis
 
 
 def cartesian_product(*arrays):
-    ndim = len(arrays)
-    return (np.stack(np.meshgrid(*arrays), 
-                     axis=-1).reshape(-1, ndim))
+    return list(product(*arrays))
 
 @jit
 def MC_step(config, beta, J, H):
@@ -75,12 +72,12 @@ def hot_config(L):
 def thermalization(*param): #L, T, J, H=0, err_runs=1
     # L is the length of the lattice
     L, T, ratio, H, err_runs = param
-    L, err_runs = int(L), int(err_runs)
+
     J = np.array([1, ratio])
 
     # number of temperature points
-    eqSteps = 100
-    mcSteps = 1000
+    eqSteps = 1000
+    mcSteps = 2000
     
     config = hot_config(L)
 
@@ -90,61 +87,58 @@ def thermalization(*param): #L, T, J, H=0, err_runs=1
     for i in range(eqSteps):
         MC_step(config, beta, J, H)
     # list of ten macroscopic properties
-    Ez = np.zeros(err_runs)
-    Cz = np.zeros(err_runs)
+    #Ez = np.zeros(err_runs)
+    #Cz = np.zeros(err_runs)
     Mz = np.zeros(err_runs)
     Xz = np.zeros(err_runs)
     Uz = np.zeros(err_runs)
 
     for j in range(err_runs):
-        E = np.zeros(mcSteps)
+        #E = np.zeros(mcSteps)
         M = np.zeros(mcSteps)
         for i in range(mcSteps):
             MC_step(config, beta, J, H)
-            E[i] = E_dimensionless(config, J, H)  # calculate the energy at time stamp
+            #E[i] = E_dimensionless(config, J, H)  # calculate the energy at time stamp
             M[i] = abs(np.mean(config))  # calculate the abs total mag. at time stamp
 
 
         # calculate macroscopic properties (divide by # sites) and append
-        Energy = E.mean() / L ** 2
-        SpecificHeat = beta ** 2 * E.var() / L**2
+        #Energy = E.mean() / L ** 2
+        #SpecificHeat = beta ** 2 * E.var() / L**2
         Magnetization = M.mean()
-        M_var = M.var()
-        Susceptibility = beta * M_var * (L ** 2)
+        Susceptibility = beta * M.var() * (L ** 2)
+        
 
-        Ez[j] = Energy
-        Cz[j] = SpecificHeat
+        #Ez[j] = Energy
+        #Cz[j] = SpecificHeat
         Mz[j] = Magnetization
         Xz[j] = Susceptibility
-        Uz[j] = 1 - moment(M, 4) / (3 * (moment(M, 2) ** 2))
+        m2 = np.mean(M ** 2)
+        if m2 != 0:
+            Uz[j] = 1 - (np.mean(M ** 4)) / (3 * m2 ** 2)
+        else: Uz[j] = -1000
 
-    E = Ez.mean()
-    E_std = Ez.std()
+    #E = Ez.mean()
+    #E_std = Ez.std()
 
     M = Mz.mean()
     M_std = Mz.std()
 
-    C = Cz.mean()
-    C_std = Cz.std()
+    #C = Cz.mean()
+    #C_std = Cz.std()
 
     X = Xz.mean()
     X_std = Xz.std()
     
-    res = np.zeros(11)
-    res[:] = T, J[1]/J[0], \
-             E, E_std, \
-             M, M_std, \
-             C, C_std, \
-             X, X_std, \
-                 Uz.mean()
-    
-    return res#, config
+    #[T, ratio, E, E_std, M, M_std, C, C_std, X, X_std, Uz.mean()]
+    return [T, ratio, M, M_std, X, X_std, Uz.mean()]#, config
 
 
 def transition(L, Ts, ratios, err_runs=1, workers=1, H=0):
     
     params = cartesian_product([L], Ts, ratios, [H], [err_runs])
-    columns = ['T', 'ratio', 'E', 'E_std', 'M', 'M_std', 'C', 'C_std', 'X', 'X_std', 'U']
+    # ['T', 'ratio', 'E', 'E_std', 'M', 'M_std', 'C', 'C_std', 'X', 'X_std', 'U']
+    columns = ['T', 'ratio', 'M', 'M_std', 'X', 'X_std', 'U']
     
     pool = Pool(processes=workers)
     res = pool.starmap(thermalization, params)
