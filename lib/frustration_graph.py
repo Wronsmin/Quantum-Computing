@@ -3,7 +3,6 @@ import numpy as np
 from tqdm import tqdm
 import dimod
 import time
-import graph_tool.all as gt 
 import matplotlib.pyplot as plt
 
 
