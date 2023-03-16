@@ -64,11 +64,11 @@ def phase_transition(L: int, ratios: np.ndarray, sampler, num_reads: int =100, h
     i = 1
     for const in tqdm(ratios):
         bqm = bqm_frustration(L, const, h)
-        sampleset = sampler.sample(bqm, num_reads=num_reads, 
+        sampleset = sampler.sample(bqm, num_reads=num_reads, annealing_time=900,
                                    label=f'Ising Frustrated {i}/{ratios.size}') #chain_strenght=5
         i += 1
         results.append(sampleset)
-        time.sleep(5)
+        time.sleep(4)
         
     
     Magnetizations = []
