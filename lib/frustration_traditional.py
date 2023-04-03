@@ -67,6 +67,21 @@ def hot_config(L):
     config[1::2, ::2] = -1
     config[::2, 1::2] = -1
     return config
+
+@jit
+def wall(lattice):
+    L = lattice.shape[0]
+    wl=0
+    for i in range (L):
+        for j in range (L):
+            s = lattice[i, j]
+            right = lattice[(i + 1)%L, j]
+            up = lattice[i, (j + 1)%L]
+            if right != s:
+                wl += 1
+            if up != s:
+                wl += 1
+    return wl
                 
 
 def thermalization(*param): #L, T, J, H=0, err_runs=1
@@ -92,14 +107,17 @@ def thermalization(*param): #L, T, J, H=0, err_runs=1
     Mz = np.zeros(err_runs)
     Xz = np.zeros(err_runs)
     Uz = np.zeros(err_runs)
+    Wz = np.zeros(err_runs)
 
     for j in range(err_runs):
         #E = np.zeros(mcSteps)
         M = np.zeros(mcSteps)
+        W = np.zeros(mcSteps)
         for i in range(mcSteps):
             MC_step(config, beta, J, H)
             #E[i] = E_dimensionless(config, J, H)  # calculate the energy at time stamp
             M[i] = abs(np.mean(config))  # calculate the abs total mag. at time stamp
+            W[i] = wall(config)
 
 
         # calculate macroscopic properties (divide by # sites) and append
@@ -117,6 +135,8 @@ def thermalization(*param): #L, T, J, H=0, err_runs=1
         if m2 != 0:
             Uz[j] = 1 - (np.mean(M ** 4)) / (3 * m2 ** 2)
         else: Uz[j] = -1000
+        
+        Wz[j] = np.mean(W)
 
     #E = Ez.mean()
     #E_std = Ez.std()
@@ -131,7 +151,7 @@ def thermalization(*param): #L, T, J, H=0, err_runs=1
     X_std = Xz.std()
     
     #[T, ratio, E, E_std, M, M_std, C, C_std, X, X_std, Uz.mean()]
-    return [T, ratio, M, M_std, X, X_std, Uz.mean()]#, config
+    return [T, ratio, M, M_std, X, X_std, Uz.mean(), Wz.mean()]#, config
 
 
 def thermalization_config(*param): #L, T, J, H=0, err_runs=1
@@ -202,8 +222,8 @@ def thermalization_config(*param): #L, T, J, H=0, err_runs=1
 def transition(L, Ts, ratios, err_runs=1, workers=1, H=0):
     
     params = cartesian_product([L], Ts, ratios, [H], [err_runs])
-    # ['T', 'ratio', 'E', 'E_std', 'M', 'M_std', 'C', 'C_std', 'X', 'X_std', 'U']
-    columns = ['T', 'ratio', 'M', 'M_std', 'X', 'X_std', 'U']
+    # ['T', 'ratio', 'E', 'E_std', 'M', 'M_std', 'C', 'C_std', 'X', 'X_std', 'U', "W"]
+    columns = ['T', 'ratio', 'M', 'M_std', 'X', 'X_std', 'U', "W"]
     
     pool = Pool(processes=workers)
     res = pool.starmap(thermalization, params)
