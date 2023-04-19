@@ -127,32 +127,29 @@ def bqm_frustration(L: int, const:  float, h: float =0.0) -> dimod.BinaryQuadrat
 
 def phase_transition(L: int, ratios: np.ndarray, sampler, num_reads: int =100, h: int =0.0):
     results = []
+    lattice = np.zeros((L, L))
     i = 1
+   
     for const in tqdm(ratios):
         bqm = bqm_frustration(L, const, h)
         sampleset = sampler.sample(bqm, num_reads=num_reads, annealing_time=900,
                                    label=f'Ising Frustrated {i}/{ratios.size}') #chain_strenght=5
         i += 1
-        results.append(sampleset)
-        time.sleep(4)
         
-    
-    Magnetizations = []
-    Frequencies = []
-    Energies = []
-
-    for result in results: 
-        M, f, E = [], [], []
-        for record in result.record:
-            M_mean = np.abs(record[0].mean())
-            M.append(M_mean)
-            f.append(record[2])
-            E.append(record[1])
-        Magnetizations.append(M)
-        Frequencies.append(f)
-        Energies.append(E)
-    
-    return Magnetizations, Frequencies, Energies
+        M = []#, W = [], W1 = []
+        for sample in sampleset.lowest():
+            for node, value in sample.items():
+                split = node.split('-')
+                x, y = int(split[0]), int(split[1])
+                
+                lattice[x, y] = value
+            
+            M.append(np.abs(lattice.mean()))#, W.append(wall(config)), W1.append(wall1(config))
+            
+        results.append([np.mean(M), np.std(M)])
+        #time.sleep(4)
+        
+    return results
 
 
 def results_analysis(M: list, F: list, E: list):

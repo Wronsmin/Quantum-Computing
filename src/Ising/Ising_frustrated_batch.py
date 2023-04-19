@@ -3,12 +3,14 @@ import sys
 sys.path.append('lib/')
 
 import time
+import dimod
 import pickle
+import minorminer
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
-from frustration_graph import phase_transition
-from dwave.system import DWaveSampler, EmbeddingComposite
+from frustration_graph import *
+from dwave.system import DWaveSampler, FixedEmbeddingComposite
 
 
 res_path = "Results/Ising_Frustrated/"
@@ -19,7 +21,9 @@ N = 100
 ratios = np.linspace(0, 1, N)
 
 qpu = DWaveSampler(profile='defaults') #'CINECA'
-sampler = EmbeddingComposite(qpu)
+bqm = bqm_frustration(L, 1, 0)
+emb = minorminer.find_embedding(dimod.to_networkx_graph(bqm), qpu.to_networkx_graph(), threads=12)
+sampler = FixedEmbeddingComposite(qpu, embedding=emb)
 
 for i in range(start, start+6):
     filename = f"CI/{i}_{ratios.size}_ratio_points.pickle"
