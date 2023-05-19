@@ -89,7 +89,7 @@ def bqm_frustration(L: int, const:  float, h: float =0.0) -> dimod.BinaryQuadrat
     
     
     Lattice_Size = (L, L)
-    C_G = nx.grid_graph(dim=Lattice_Size, periodic=False)
+    C_G = nx.grid_graph(dim=Lattice_Size)
     
     J1 = -1
     J2 = const * np.abs(J1)
@@ -99,7 +99,7 @@ def bqm_frustration(L: int, const:  float, h: float =0.0) -> dimod.BinaryQuadrat
     for node in C_G.nodes:
         i, j = node # i and j represents the matrix indices i-> rows j->columns
         node_name = f"{i}-{j}"
-        bqm.add_variable(v=node_name, bias=h)
+        bqm.add_variable(v=node_name, bias=h) # h=0
         
 
     for x in range(L-1):
