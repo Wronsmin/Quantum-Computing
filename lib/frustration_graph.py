@@ -72,7 +72,7 @@ def wall(lattice, n=4):
     return np.sum(~idx)
 
 
-def bqm_frustration(L: int, const:  float, h: float =0.0) -> dimod.BinaryQuadraticModel:
+def bqm_frustration(L: int, ratio:  float, h: float =0.0) -> dimod.BinaryQuadraticModel:
     """Function used to build the model described in Park and Lee's article[1]
     
     [1] Park, Hayun and Lee, Hunpyo. "Phase transition of Frustrated Ising model 
@@ -92,7 +92,7 @@ def bqm_frustration(L: int, const:  float, h: float =0.0) -> dimod.BinaryQuadrat
     C_G = nx.grid_graph(dim=Lattice_Size)
     
     J1 = -1
-    J2 = const * np.abs(J1)
+    J2 = ratio * np.abs(J1)
 
     bqm = dimod.BinaryQuadraticModel.empty(dimod.SPIN)
 
