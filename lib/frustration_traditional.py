@@ -35,7 +35,7 @@ def MC_step(config, beta, J, H):
                     
             del_E = 2 * s * (J1 * n_nb - J2 * nn_nb +  H)
             
-            if (del_E < 0) or (rng[i, j] < np.exp(-del_E * beta)):
+            if rng[i, j] < min(1, np.exp(-del_E * beta)):
                 config[i, j] = -s
 
 
@@ -70,7 +70,7 @@ def hot_config(L):
 
 
 @jit
-def wall1(lattice):
+def wall(lattice):
     L = lattice.shape[0]
     wl=0
     for i in range (L):
@@ -83,60 +83,7 @@ def wall1(lattice):
             if up != s:
                 wl += 1
     return wl
-
-
-def wall(lattice, n=4):
-    """
-    Find the perimeter of objects in binary images.
-    A pixel is part of an object perimeter if its value is one and there
-    is at least one zero-valued pixel in its neighborhood.
-    By default the neighborhood of a pixel is 4 nearest pixels, but
-    if `n` is set to 8 the 8 nearest pixels will be considered.
-    Parameters
-    ----------
-      lattice : A boolean image with values -1 or 1
-      n : Connectivity. Must be 4 or 8 (default: 8)
-    Returns
-    -------
-      perim : A boolean image
-    """
-    
-    lattice[lattice == -1] = 0  # convert -ones into zeros
-
-    if n not in (4,8):
-        raise ValueError('contour: n must be 4 or 8')
-    rows,cols = lattice.shape
-
-    # Translate image by one pixel in all directions
-    north = np.zeros((rows,cols))
-    south = np.zeros((rows,cols))
-    west = np.zeros((rows,cols))
-    east = np.zeros((rows,cols))
-
-    north[:-1,:] = lattice[1:,:]
-    south[1:,:]  = lattice[:-1,:]
-    west[:,:-1]  = lattice[:,1:]
-    east[:,1:]   = lattice[:,:-1]
-    idx = (north == lattice) & \
-          (south == lattice) & \
-          (west  == lattice) & \
-          (east  == lattice)
-    if n == 8:
-        north_east = np.zeros((rows, cols))
-        north_west = np.zeros((rows, cols))
-        south_east = np.zeros((rows, cols))
-        south_west = np.zeros((rows, cols))
-        north_east[:-1, 1:]   = lattice[1:, :-1]
-        north_west[:-1, :-1] = lattice[1:, 1:]
-        south_east[1:, 1:]     = lattice[:-1, :-1]
-        south_west[1:, :-1]   = lattice[:-1, 1:]
-        idx &= (north_east == lattice) & \
-               (south_east == lattice) & \
-               (south_west == lattice) & \
-               (north_west == lattice)
-
-    return np.sum(~idx)
-                
+     
 
 def thermalization(*param): #L, T, J, H=0, err_runs=1
     # L is the length of the lattice
@@ -162,19 +109,16 @@ def thermalization(*param): #L, T, J, H=0, err_runs=1
     Xz = np.zeros(err_runs)
     Uz = np.zeros(err_runs)
     Wz = np.zeros(err_runs)
-    Wz1 = np.zeros(err_runs)
 
     for j in range(err_runs):
         #E = np.zeros(mcSteps)
         M = np.zeros(mcSteps)
         W = np.zeros(mcSteps)
-        W1 = np.zeros(mcSteps)
         for i in range(mcSteps):
             MC_step(config, beta, J, H)
             #E[i] = E_dimensionless(config, J, H)  # calculate the energy at time stamp
             M[i] = abs(np.mean(config))  # calculate the abs total mag. at time stamp
             W[i] = wall(config)
-            W1[i] = wall1(config)
 
 
         # calculate macroscopic properties (divide by # sites) and append
@@ -194,7 +138,6 @@ def thermalization(*param): #L, T, J, H=0, err_runs=1
         else: Uz[j] = -1000
         
         Wz[j] = np.mean(W)
-        Wz1[j] = np.mean(W1)
 
     #E = Ez.mean()
     #E_std = Ez.std()
@@ -209,7 +152,7 @@ def thermalization(*param): #L, T, J, H=0, err_runs=1
     X_std = Xz.std()
     
     #[T, ratio, E, E_std, M, M_std, C, C_std, X, X_std, Uz.mean()]
-    return [T, ratio, M, M_std, X, X_std, Uz.mean(), Wz.mean(), Wz1.mean()]#, config
+    return [T, ratio, M, M_std, X, X_std, Uz.mean(), Wz.mean()]#, config
 
 
 def thermalization_config(*param): #L, T, J, H=0, err_runs=1
@@ -281,7 +224,7 @@ def transition(L, Ts, ratios, err_runs=1, workers=1, H=0):
     
     params = cartesian_product([L], Ts, ratios, [H], [err_runs])
     # ['T', 'ratio', 'E', 'E_std', 'M', 'M_std', 'C', 'C_std', 'X', 'X_std', 'U', "W"]
-    columns = ['T', 'ratio', 'M', 'M_std', 'X', 'X_std', 'U', "W", "W1"]
+    columns = ['T', 'ratio', 'M', 'M_std', 'X', 'X_std', 'U', "W"]
     
     pool = Pool(processes=workers)
     res = pool.starmap(thermalization, params)
